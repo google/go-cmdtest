@@ -1,4 +1,4 @@
-module gob/go-cmdtest
+module github.com/google/go-cmdtest
 
 go 1.12
 
