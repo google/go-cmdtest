@@ -16,10 +16,10 @@ $ mkdir foo
 $ cd foo
 $ echo the ${ROOTDIR} is what it is
 
-$ echof bar line one
+$ fecho bar line one
 $ cat bar
 
-$ echof bar line two
+$ fecho bar line two
 $ cat bar
 
 $ setenv foo bar
@@ -34,8 +34,8 @@ $ echoStdin < bar
 # More stuff here to check that InProcessProgram undoes
 # its redirections.
 
-$ echof bar line three
+$ fecho bar line three
 $ cat bar
 
-$ echof bar line\nfour
+$ fecho bar line\nfour
 $ cat bar

@@ -24,11 +24,11 @@ $ cd foo
 $ echo the ${ROOTDIR} is what it is
 the ${ROOTDIR} is what it is
 
-$ echof bar line one
+$ fecho bar line one
 $ cat bar
 line one
 
-$ echof bar line two
+$ fecho bar line two
 $ cat bar
 line two
 
@@ -49,11 +49,11 @@ line two
 # More stuff here to check that InProcessProgram undoes
 # its redirections.
 
-$ echof bar line three
+$ fecho bar line three
 $ cat bar
 line three
 
-$ echof bar line\nfour
+$ fecho bar line\nfour
 $ cat bar
 line
 four

@@ -90,9 +90,9 @@ import (
 //   mkdir DIR
 //   setenv VAR VALUE
 //   echo ARG1 ARG2 ...
-//   echof FILE ARG1 ARG2 ...
+//   fecho FILE ARG1 ARG2 ...
 //
-// These all have their usual Unix shell meaning, except for echof, which writes its
+// These all have their usual Unix shell meaning, except for fecho, which writes its
 // arguments to a file (output redirection is not supported). All file and directory
 // arguments must refer to the current directory; that is, they cannot contain
 // slashes.
@@ -153,7 +153,7 @@ func Read(dir string) (*TestSuite, error) {
 			"cat":    fixedArgBuiltin(1, catCmd),
 			"cd":     fixedArgBuiltin(1, cdCmd),
 			"echo":   echoCmd,
-			"echof":  echofCmd,
+			"fecho":  fechoCmd,
 			"mkdir":  fixedArgBuiltin(1, mkdirCmd),
 			"setenv": fixedArgBuiltin(2, setenvCmd),
 		},
@@ -725,12 +725,12 @@ func echoCmd(args []string, inputFile string) ([]byte, error) {
 	return []byte(s), nil
 }
 
-// echof FILE ARG1 ARG2 ...
+// fecho FILE ARG1 ARG2 ...
 // write args to FILE
 //
 // \n is added at the end of the input.
 // Also, literal "\n" in the input will be replaced by \n.
-func echofCmd(args []string, inputFile string) ([]byte, error) {
+func fechoCmd(args []string, inputFile string) ([]byte, error) {
 	if len(args) < 1 {
 		return nil, fatal{errors.New("need at least 1 argument")}
 	}
