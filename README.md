@@ -1,6 +1,6 @@
-[![Build Status](https://travis-ci.org/google/cmdtest.svg?branch=master)](https://travis-ci.org/google/cmdtest)
-[![godoc](https://godoc.org/github.com/google/cmdtest?status.svg)](https://godoc.org/github.com/google/cmdtest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/google/cmdtest)](https://goreportcard.com/report/github.com/google/cmdtest)
+[![Build Status](https://travis-ci.org/google/go-cmdtest.svg?branch=master)](https://travis-ci.org/google/go-cmdtest)
+[![godoc](https://godoc.org/github.com/google/go-cmdtest?status.svg)](https://godoc.org/github.com/google/go-cmdtest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/google/go-cmdtest)](https://goreportcard.com/report/github.com/google/go-cmdtest)
 
 # Testing your CLI
 
