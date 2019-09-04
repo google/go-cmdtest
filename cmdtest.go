@@ -580,7 +580,6 @@ func (w *lockingWriter) Write(b []byte) (int, error) {
 // become the command's standard input.
 func execute(name string, args []string, infile string) ([]byte, error) {
 	ecmd := exec.Command(name, args...)
-	var errc chan error
 	if infile != "" {
 		f, err := os.Open(infile)
 		if err != nil {
@@ -592,11 +591,6 @@ func execute(name string, args []string, infile string) ([]byte, error) {
 	out, err := ecmd.CombinedOutput()
 	if err != nil {
 		return out, err
-	}
-	if errc != nil {
-		if err = <-errc; err != nil {
-			return out, err
-		}
 	}
 	return out, nil
 }
