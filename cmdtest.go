@@ -31,7 +31,7 @@
 //
 //    var update = flag.Bool("update", false, "update test files with results")
 //    ...
-//    err := ts.Run(*update)
+//    err := ts.Run(t, *update)
 package cmdtest
 
 import (
@@ -61,7 +61,7 @@ import (
 // Before the first line starting with a '$', empty lines and lines beginning with
 // "#" are ignored.
 //
-// A sequence of consecutive lines starting with '$' begin a test case. These lines
+// A sequence of consecutive lines starting with '$' begins a test case. These lines
 // are commands to execute. See below for the valid commands.
 //
 // Lines following the '$' lines are command output (merged stdout and stderr).
