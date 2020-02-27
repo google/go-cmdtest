@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/renameio"
 )
 
 var once sync.Once
@@ -195,14 +196,33 @@ func TestUpdateToTemp(t *testing.T) {
 		ts := mustReadTestSuite(t, dir)
 		ts.Commands["echo-stdin"] = Program("echo-stdin")
 		ts.Commands["echoStdin"] = InProcessProgram("echoStdin", echoStdin)
-		fname, err := ts.files[0].updateToTemp()
+		f, err := ts.files[0].updateToTemp()
+		defer f.Cleanup()
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer os.Remove(fname)
-		if diff := diffFiles(t, "testdata/good/good.ct", fname); diff != "" {
+		if diff := diffFiles(t, "testdata/good/good.ct", f.Name()); diff != "" {
 			t.Errorf("%s: %s", dir, diff)
 		}
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	ct := "testdata/update/update.ct"
+	original, err := ioutil.ReadFile(ct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		// Restore original file content.
+		if err := renameio.WriteFile(ct, original, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	ts := mustReadTestSuite(t, "update")
+	ts.update(t)
+	if diff := diffFiles(t, ct, "testdata/update/update.golden"); diff != "" {
+		t.Errorf(diff)
 	}
 }
 
