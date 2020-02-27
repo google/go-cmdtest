@@ -124,7 +124,7 @@ func TestCLI(t *testing.T) {
         t.Fatal(err)
     }
     ts.Commands["my-cli"] = cmdtest.InProcessProgram("my-cli", run)
-    err := ts.Run(*update)
+    err := ts.Run(t, *update)
     if err != nil {
         t.Fatal(err)
     }
