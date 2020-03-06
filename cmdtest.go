@@ -626,8 +626,9 @@ func expandVariables(s string, lookup func(string) (string, bool)) (string, erro
 // scrub removes dynamic content from output.
 func scrub(rootDir string, b []byte) []byte {
 	const scrubbedRootDir = "${ROOTDIR}"
-	rootDirWithSeparator := rootDir + string(filepath.Separator)
-	scrubbedRootDirWithSeparator := scrubbedRootDir + "/"
+	const sep = string(filepath.Separator)
+	rootDirWithSeparator := rootDir + sep
+	scrubbedRootDirWithSeparator := scrubbedRootDir + sep
 	b = bytes.Replace(b, []byte(rootDirWithSeparator), []byte(scrubbedRootDirWithSeparator), -1)
 	b = bytes.Replace(b, []byte(rootDir), []byte(scrubbedRootDir), -1)
 	return b
