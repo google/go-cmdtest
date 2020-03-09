@@ -50,6 +50,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/renameio"
 )
 
 // A TestSuite contains a set of test files, each of which may contain multiple
@@ -335,10 +336,17 @@ func (ts *TestSuite) update(t *testing.T) {
 	for _, tf := range ts.files {
 		t.Run(strings.TrimSuffix(tf.filename, ".ct"), func(t *testing.T) {
 			tmpfile, err := tf.updateToTemp()
+			if tmpfile != nil {
+				defer func() {
+					if err := tmpfile.Cleanup(); err != nil {
+						t.Fatal(err)
+					}
+				}()
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Rename(tmpfile, tf.filename); err != nil {
+			if err := tmpfile.CloseAtomicallyReplace(); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -346,29 +354,19 @@ func (ts *TestSuite) update(t *testing.T) {
 }
 
 // updateToTemp executes tf and writes the output to a temporary file.
-// It returns the name of the temporary file.
-func (tf *testFile) updateToTemp() (fname string, err error) {
+// It returns the temporary file.
+func (tf *testFile) updateToTemp() (f *renameio.PendingFile, err error) {
 	if err := tf.execute(noopLogger); err != nil {
-		return "", err
+		return nil, err
 	}
-
-	f, err := ioutil.TempFile("", "cmdtest")
-	if err != nil {
-		return "", err
+	if f, err = renameio.TempFile("", tf.filename); err != nil {
+		return nil, err
 	}
-	defer func() {
-		err2 := f.Close()
-		if err == nil {
-			err = err2
-		}
-		if err != nil {
-			os.Remove(f.Name())
-		}
-	}()
 	if err := tf.write(f); err != nil {
-		return "", err
+		// Return f in order to clean it up outside this function.
+		return f, err
 	}
-	return f.Name(), nil
+	return f, nil
 }
 
 func (tf *testFile) execute(log func(string, ...interface{})) error {
