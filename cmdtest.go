@@ -46,7 +46,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -503,27 +502,18 @@ func InProcessProgram(name string, f func() int) CommandFunc {
 			os.Stderr = origErr
 		}()
 		os.Args = append([]string{name}, args...)
-		// Redirect stdout and stderr to pipes.
-		rOut, wOut, err := os.Pipe()
+		// Redirect stdout and stderr to a pipe.
+		pr, pw, err := os.Pipe()
 		if err != nil {
 			return nil, err
 		}
-		rErr, wErr, err := os.Pipe()
-		if err != nil {
-			return nil, err
-		}
-		os.Stdout = wOut
-		os.Stderr = wErr
+		os.Stdout = pw
+		os.Stderr = pw
 		// Copy both stdout and stderr to the same buffer.
 		buf := &bytes.Buffer{}
-		lw := &lockingWriter{w: buf}
-		errc := make(chan error, 2)
+		errc := make(chan error, 1)
 		go func() {
-			_, err := io.Copy(lw, rOut)
-			errc <- err
-		}()
-		go func() {
-			_, err := io.Copy(lw, rErr)
+			_, err := io.Copy(buf, pr)
 			errc <- err
 		}()
 
@@ -540,16 +530,10 @@ func InProcessProgram(name string, f func() int) CommandFunc {
 		}
 
 		res := f()
-		if err := wOut.Close(); err != nil {
-			return nil, err
-		}
-		if err := wErr.Close(); err != nil {
+		if err := pw.Close(); err != nil {
 			return nil, err
 		}
 		// Wait for pipe copying to finish.
-		if err := <-errc; err != nil {
-			return nil, err
-		}
 		if err := <-errc; err != nil {
 			return nil, err
 		}
@@ -558,19 +542,6 @@ func InProcessProgram(name string, f func() int) CommandFunc {
 		}
 		return buf.Bytes(), err
 	}
-}
-
-// lockingWriter is an io.Writer whose Write method is safe for
-// use by multiple goroutines.
-type lockingWriter struct {
-	mu sync.Mutex
-	w  io.Writer
-}
-
-func (w *lockingWriter) Write(b []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.w.Write(b)
 }
 
 // execute uses exec.Command to run the named program with the given args. The
