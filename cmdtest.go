@@ -320,8 +320,8 @@ func (tf *testFile) compare(log func(string, ...interface{})) string {
 	}
 	buf := new(bytes.Buffer)
 	for _, c := range tf.cases {
-		if diff := cmp.Diff(c.gotOutput, c.wantOutput); diff != "" {
-			fmt.Fprintf(buf, "%s:%d: got=-, want=+\n", tf.filename, c.startLine)
+		if diff := cmp.Diff(c.wantOutput, c.gotOutput); diff != "" {
+			fmt.Fprintf(buf, "%s:%d: want=-, got=+\n", tf.filename, c.startLine)
 			c.writeCommands(buf)
 			fmt.Fprintf(buf, "%s\n", diff)
 		}
