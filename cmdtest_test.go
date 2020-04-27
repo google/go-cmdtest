@@ -107,7 +107,7 @@ func TestRead(t *testing.T) {
 			},
 		},
 	}
-	if diff := cmp.Diff(got, want, cmp.AllowUnexported(TestSuite{}, testFile{}, testCase{})); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.AllowUnexported(TestSuite{}, testFile{}, testCase{})); diff != "" {
 		t.Error(diff)
 	}
 
@@ -131,8 +131,8 @@ func TestCompare(t *testing.T) {
 	}
 	got := err.Error()
 	wants := []string{
-		`testdata.bad.bad-output\.ct:2: got=-, want=+`,
-		`testdata.bad.bad-output\.ct:6: got=-, want=+`,
+		`testdata.bad.bad-output\.ct:2: want=-, got=+`,
+		`testdata.bad.bad-output\.ct:6: want=-, got=+`,
 		`testdata.bad.bad-fail-1\.ct:4: "echo" succeeded, but it was expected to fail`,
 		`testdata.bad.bad-fail-2\.ct:4: "cd foo" failed with chdir`,
 	}
@@ -235,7 +235,7 @@ func diffFiles(t *testing.T, gotFile, wantFile string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return cmp.Diff(string(got), string(want))
+	return cmp.Diff(string(want), string(got))
 }
 
 func mustReadTestSuite(t *testing.T, dir string) *TestSuite {
