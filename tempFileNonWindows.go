@@ -18,12 +18,9 @@
 package cmdtest
 
 import (
-	"fmt"
-
 	"github.com/google/renameio"
 )
 
 func createTempFile(filename string) (tempFile, error) {
-	fmt.Println("RENAMEIO")
 	return renameio.TempFile("", filename)
 }
