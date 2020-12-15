@@ -49,7 +49,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/renameio"
 )
 
 // A TestSuite contains a set of test files, each of which may contain multiple
@@ -354,11 +353,11 @@ func (ts *TestSuite) update(t *testing.T) {
 
 // updateToTemp executes tf and writes the output to a temporary file.
 // It returns the temporary file.
-func (tf *testFile) updateToTemp() (f *renameio.PendingFile, err error) {
+func (tf *testFile) updateToTemp() (f tempFile, err error) {
 	if err := tf.execute(noopLogger); err != nil {
 		return nil, err
 	}
-	if f, err = renameio.TempFile("", tf.filename); err != nil {
+	if f, err = createTempFile(tf.filename); err != nil {
 		return nil, err
 	}
 	if err := tf.write(f); err != nil {
@@ -749,4 +748,16 @@ func checkPath(path string) error {
 		return fatal{fmt.Errorf("argument must be in the current directory (%q has a '/')", path)}
 	}
 	return nil
+}
+
+// tempFile represents a temporary file.
+type tempFile interface {
+	io.Writer
+	Name() string
+
+	// Close and remove the file.
+	Cleanup() error
+
+	// Close the file and replace the destination file with it.
+	CloseAtomicallyReplace() error
 }
