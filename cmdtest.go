@@ -113,6 +113,9 @@ type TestSuite struct {
 	// and print out their names for debugging.
 	KeepRootDirs bool
 
+	// If true, don't log while comparing.
+	DisableLogging bool
+
 	files []*testFile
 }
 
@@ -287,9 +290,13 @@ func (ts *TestSuite) Run(t *testing.T, update bool) {
 
 // compare runs a subtest for each file in the test suite. See Run.
 func (ts *TestSuite) compare(t *testing.T) {
+	log := t.Logf
+	if ts.DisableLogging {
+		log = noopLogger
+	}
 	for _, tf := range ts.files {
 		t.Run(strings.TrimSuffix(tf.filename, ".ct"), func(t *testing.T) {
-			if s := tf.compare(t.Logf); s != "" {
+			if s := tf.compare(log); s != "" {
 				t.Error(s)
 			}
 		})
