@@ -31,7 +31,7 @@
 //
 //    var update = flag.Bool("update", false, "update test files with results")
 //    ...
-//    err := ts.Run(t, *update)
+//    ts.Run(t, *update)
 package cmdtest
 
 import (
@@ -493,10 +493,11 @@ func Program(path string) CommandFunc {
 // behave like an actual main function except that it returns an error code
 // instead of calling os.Exit.
 // Before calling f:
-// - os.Args is set to the concatenation of name and args.
-// - If inputFile is non-empty, it is redirected to standard input.
-// - Standard output and standard error are redirected to a buffer, which is
-// returned.
+//
+//   - os.Args is set to the concatenation of name and args.
+//   - If inputFile is non-empty, it is redirected to standard input.
+//   - Standard output and standard error are redirected to a buffer, which is
+//     returned.
 func InProcessProgram(name string, f func() int) CommandFunc {
 	return func(args []string, inputFile string) ([]byte, error) {
 		origArgs := os.Args
