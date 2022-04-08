@@ -2,8 +2,8 @@
 
 #   Prefix stuff.
 
-$ command arg1 arg2  
-$ cmd2   
+$ command arg1 arg2
+$ cmd2
 out1
 out2
 
@@ -14,6 +14,9 @@ $ c3
 
 $ c4 --> FAIL
 out3
+
+$ c5 --> FAIL 2
+out4
 
 
 # end

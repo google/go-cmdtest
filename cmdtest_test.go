@@ -104,6 +104,12 @@ func TestRead(t *testing.T) {
 						commands:   []string{"c4 --> FAIL"},
 						wantOutput: []string{"out3"},
 					},
+					{
+						before:     []string{""},
+						startLine:  18,
+						commands:   []string{"c5 --> FAIL 2"},
+						wantOutput: []string{"out4"},
+					},
 				},
 				suffix: []string{"", "", "# end"},
 			},
@@ -133,6 +139,7 @@ func (ts *TestSuite) compareReturningError() error {
 func TestCompare(t *testing.T) {
 	once.Do(setup)
 	ts := mustReadTestSuite(t, "good")
+	ts.DisableLogging = true
 	ts.Commands["echo-stdin"] = Program("echo-stdin")
 	ts.Commands["echoStdin"] = InProcessProgram("echoStdin", echoStdin)
 	ts.Run(t, false)
@@ -143,6 +150,11 @@ func TestCompare(t *testing.T) {
 	t.Run("bad", func(t *testing.T) {
 		ts = mustReadTestSuite(t, "bad")
 		ts.Commands["echo-stdin"] = Program("echo-stdin")
+		ts.Commands["code17"] = func([]string, string) ([]byte, error) {
+			return nil, fmt.Errorf("wrapping: %w", &ExitCodeErr{Msg: "failed", Code: 17})
+		}
+		ts.Commands["inprocess99"] = InProcessProgram("inprocess99", func() int { return 99 })
+
 		err := ts.compareReturningError()
 		if err == nil {
 			t.Fatal("got nil, want error")
@@ -154,6 +166,10 @@ func TestCompare(t *testing.T) {
 			`testdata.bad.bad-fail-1\.ct:\d: "echo" succeeded, but it was expected to fail`,
 			`testdata.bad.bad-fail-2\.ct:\d: "cd foo" failed with chdir`,
 			`testdata.bad.bad-fail-3\.ct:\d: "cd foo bar" failed with need exactly`,
+			`testdata.bad.bad-fail-4\.ct:\d: "cd foo bar" failed without an exit code`,
+			`testdata.bad.bad-fail-5\.ct:\d: "cd foo" failed with exit code 2, but 3 was expected`,
+			`testdata.bad.bad-fail-6\.ct:\d: "code17" failed with exit code 17, but 4 was expected`,
+			`testdata.bad.bad-fail-7\.ct:\d: "inprocess99" failed with exit code 99, but 5 was expected`,
 		}
 		failed := false
 		_ = failed
@@ -248,6 +264,52 @@ func TestUpdate(t *testing.T) {
 	ts.update(t)
 	if diff := diffFiles(t, ct, "testdata/update/update.golden"); diff != "" {
 		t.Errorf(diff)
+	}
+}
+
+func TestParseCommand(t *testing.T) {
+	for _, test := range []struct {
+		cmdline  string
+		wantCmd  string
+		wantFail bool
+		wantCode int
+		wantErr  bool
+	}{
+		{
+			cmdline: "ls",
+			wantCmd: "ls",
+		},
+		{
+			cmdline:  "a b c --> FAIL   ",
+			wantCmd:  "a b c",
+			wantFail: true,
+		},
+		{
+			cmdline: "a b c --> fail",
+			wantCmd: "a b c --> fail",
+		},
+		{
+			cmdline:  "a b c --> FAIL 23",
+			wantCmd:  "a b c",
+			wantFail: true,
+			wantCode: 23,
+		},
+		{
+			cmdline: "a b c --> FAIL 23a",
+			wantErr: true,
+		},
+		{
+			cmdline: "a b c --> FAIL 0",
+			wantErr: true,
+		},
+	} {
+		gotCmd, gotFail, gotCode, err := parseCommand(test.cmdline)
+		if gotCmd != test.wantCmd || gotFail != test.wantFail || gotCode != test.wantCode || (err != nil) != test.wantErr {
+			t.Errorf("%q:\ngot  (%q, %t, %d, %v)\nwant (%q, %t, %d, %t)",
+				test.cmdline,
+				gotCmd, gotFail, gotCode, err,
+				test.wantCmd, test.wantFail, test.wantCode, test.wantErr)
+		}
 	}
 }
 

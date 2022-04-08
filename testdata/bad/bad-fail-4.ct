@@ -1,0 +1,6 @@
+# Command should fail with an exit code, but there isn't one.
+
+$ cd foo bar --> FAIL 3
+
+# We shouldn't see this output.
+$ echo should not appear

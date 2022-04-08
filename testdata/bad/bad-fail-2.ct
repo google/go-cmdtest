@@ -1,6 +1,8 @@
 # Command should not fail, but does.
 # The failure is from the os.Chdir call.
 
+$ echo hello
+
 $ cd foo
 
 # We shouldn't see this output.
