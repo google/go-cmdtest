@@ -3,6 +3,9 @@
 # Fails because there is no subdirectory "foo".
 $ cd foo --> FAIL
 
+# ... and it fails with exit code 2.
+$ cd foo --> FAIL 2
+
 $ echo hello world
 hello world
 

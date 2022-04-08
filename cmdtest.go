@@ -45,7 +45,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -77,7 +79,8 @@ import (
 //
 // By default, commands are expected to succeed, and the test will fail
 // otherwise. However, commands that are expected to fail can be marked
-// with a " --> FAIL" suffix.
+// with a " --> FAIL" suffix. The word FAIL may optionally be followed
+// by a non-zero integer specifying the expected exit code.
 //
 // The cases of a test file are executed in order, starting in a freshly created
 // temporary directory. Execution of a file stops with the first case that
@@ -143,6 +146,22 @@ type testCase struct {
 // as well as the name of a file to use for input redirection. It returns the
 // command's output.
 type CommandFunc func(args []string, inputFile string) ([]byte, error)
+
+// ExitCodeErr is an error that a CommandFunc can return to provide an exit
+// code. Tests can check the code by writing the desired value after "--> FAIL".
+//
+// ExitCodeErr is only necessary when writing commands that don't return errors
+// that come from the OS. Commands that return the error from os/exec.Cmd.Run
+// or functions in the os package like Chdir and Mkdir don't need to use this,
+// because those errors already contain error codes.
+type ExitCodeErr struct {
+	Msg  string
+	Code int
+}
+
+func (e *ExitCodeErr) Error() string {
+	return fmt.Sprintf("%s (code %d)", e.Msg, e.Code)
+}
 
 // Read reads all the files in dir with extension ".ct" and returns a TestSuite
 // containing them. See the TestSuite documentation for syntax.
@@ -400,20 +419,21 @@ func (tf *testFile) execute(log func(string, ...interface{})) error {
 
 // Run the test case by executing the commands. The concatenated output from all commands
 // is saved in tc.gotOutput.
-// An error is returned if: a command that should succeed instead failed; a command that should
-// fail instead succeeded; or a built-in command was called incorrectly.
+// An error is returned if any of the following occur:
+//   - A command that should succeed instead failed.
+//   - A command that should fail instead succeeded.
+//   - A command that should fail with a particular error code instead failed
+//     with a different one.
+//   - A built-in command was called incorrectly.
 func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) error {
-	const failMarker = " --> FAIL"
-
 	tc.gotOutput = nil
 	var allout []byte
-	var err error
 	for i, cmd := range tc.commands {
-		wantFail := false
-		if strings.HasSuffix(cmd, failMarker) {
-			cmd = strings.TrimSuffix(cmd, failMarker)
-			wantFail = true
+		cmd, wantFail, wantExitCode, err := parseCommand(cmd)
+		if err != nil {
+			return err
 		}
+		_ = wantExitCode
 		args := strings.Fields(cmd)
 		for i := range args {
 			args[i], err = expandVariables(args[i], os.LookupEnv)
@@ -434,12 +454,24 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 			return fmt.Errorf("%d: no such command %q", tc.startLine+i, name)
 		}
 		out, err := f(args, infile)
+		line := tc.startLine + i
 		if err == nil && wantFail {
-			return fmt.Errorf("%d: %q succeeded, but it was expected to fail", tc.startLine+i, cmd)
+			return fmt.Errorf("%d: %q succeeded, but it was expected to fail", line, cmd)
 		}
 		if err != nil && !wantFail {
-			return fmt.Errorf("%d: %q failed with %v. Output:\n%s", tc.startLine+i, cmd, err, out)
+			return fmt.Errorf("%d: %q failed with %v. Output:\n%s", line, cmd, err, out)
 		}
+		if err != nil && wantFail && wantExitCode != 0 {
+			gotExitCode, ok := extractExitCode(err)
+			if !ok {
+				return fmt.Errorf("%d: %q failed without an exit code, but one was expected", line, cmd)
+			}
+			if gotExitCode != wantExitCode {
+				return fmt.Errorf("%d: %q failed with exit code %d, but %d was expected",
+					line, cmd, gotExitCode, wantExitCode)
+			}
+		}
+
 		log("%s\n", string(out))
 		allout = append(allout, out...)
 	}
@@ -450,6 +482,44 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 		tc.gotOutput = strings.Split(s, "\n")
 	}
 	return nil
+}
+
+func parseCommand(cmdline string) (cmd string, wantFail bool, wantExitCode int, err error) {
+	const failMarker = " --> FAIL"
+	i := strings.LastIndex(cmdline, failMarker)
+	if i < 0 {
+		return cmdline, false, 0, nil
+	}
+	cmd = cmdline[:i]
+	wantFail = true
+	rest := strings.TrimSpace(cmdline[i+len(failMarker):])
+	if len(rest) > 0 {
+		wantExitCode, err = strconv.Atoi(rest)
+		if err != nil {
+			return "", false, 0, err
+		}
+		if wantExitCode == 0 {
+			return "", false, 0, errors.New("cannot use 0 as a FAIL exit code")
+		}
+	}
+	return cmd, wantFail, wantExitCode, nil
+}
+
+// extractExitCode extracts an exit code from err and returns it and true.
+// If one can't be found, the second return value is false.
+func extractExitCode(err error) (code int, ok bool) {
+	var (
+		errno syscall.Errno
+		ece   *ExitCodeErr
+	)
+	switch {
+	case errors.As(err, &errno):
+		return int(errno), true
+	case errors.As(err, &ece):
+		return ece.Code, true
+	default:
+		return 0, false
+	}
 }
 
 // Program defines a command function that will run the executable at path using
@@ -525,7 +595,10 @@ func InProcessProgram(name string, f func() int) CommandFunc {
 			return nil, err
 		}
 		if res != 0 {
-			err = fmt.Errorf("%s failed with exit code %d", name, res)
+			err = &ExitCodeErr{
+				Msg:  fmt.Sprintf("%s failed", name),
+				Code: res,
+			}
 		}
 		return buf.Bytes(), err
 	}

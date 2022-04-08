@@ -3,5 +3,6 @@
 
 $ cd foo bar
 
+
 # We shouldn't see this output.
 $ echo should not appear
