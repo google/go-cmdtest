@@ -17,12 +17,19 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
 )
 
+var exit = flag.Int("exit", 0, "exit with this code")
+
 func main() {
+	flag.Parse()
+	if *exit != 0 {
+		os.Exit(*exit)
+	}
 	fmt.Println("Here is stdin:")
 	_, err := io.Copy(os.Stdout, os.Stdin)
 	if err != nil {

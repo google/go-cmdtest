@@ -38,7 +38,7 @@ var once sync.Once
 func setup() {
 	// Build echo-stdin, the little program needed to test input redirection.
 	if err := exec.Command("go", "build", "testdata/echo-stdin.go").Run(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("building echo-stdin: %v", err)
 	}
 }
 
@@ -170,6 +170,7 @@ func TestCompare(t *testing.T) {
 			`testdata.bad.bad-fail-5\.ct:\d: "cd foo" failed with exit code 2, but 3 was expected`,
 			`testdata.bad.bad-fail-6\.ct:\d: "code17" failed with exit code 17, but 4 was expected`,
 			`testdata.bad.bad-fail-7\.ct:\d: "inprocess99" failed with exit code 99, but 5 was expected`,
+			`testdata.bad.bad-fail-8\.ct:\d: "echo-stdin -exit 1" failed with exit code 1, but 6 was expected`,
 		}
 		failed := false
 		_ = failed
