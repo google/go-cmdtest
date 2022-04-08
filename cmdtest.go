@@ -510,11 +510,14 @@ func parseCommand(cmdline string) (cmd string, wantFail bool, wantExitCode int, 
 func extractExitCode(err error) (code int, ok bool) {
 	var (
 		errno syscall.Errno
+		ee    *exec.ExitError
 		ece   *ExitCodeErr
 	)
 	switch {
 	case errors.As(err, &errno):
 		return int(errno), true
+	case errors.As(err, &ee):
+		return ee.ExitCode(), true
 	case errors.As(err, &ece):
 		return ece.Code, true
 	default:
