@@ -79,7 +79,7 @@ map; keep reading for an example.
 
 `cmdtest` does its own environment variable substitution, using the syntax
 `${VAR}`. Test execution inherits the full environment of the test binary caller
-(typically, your shell). The environment variable ROOTDIR is set to the
+(typically, your shell). The environment variable `ROOTDIR` is set to the
 temporary directory created to run the test file.
 
 ## Running the tests
@@ -92,8 +92,14 @@ ts, err := cmdtest.Read("testdata")
 
 Next, configure the resulting `TestSuite` by adding a `Setup` function and/or
 adding commands to the `Commands` map. In particular, you will want to add a
-command for your CLI. `cmdtest` can't handle `os.Exit` being called during a
-test, so refactor your `main` function like this:
+command for your CLI. There are two ways to do this: you can run your CLI binary
+directly from from inside the test binary process, or you can build the CLI
+binary and have the test binary run it as a sub-process.
+
+### Invoking your CLI in-process
+
+To run your CLI from inside the test binary, you will have to prevent it from
+calling `os.Exit`. You may be able to refactor your `main` function like this:
 
 ```go
 func main() {
@@ -111,8 +117,28 @@ Then, add the command for your CLI to the `TestSuite`:
 ts.Commands["my-cli"] = cmdtest.InProcessProgram("my-cli", run)
 ```
 
+### Invoking your CLI out-of-process
+
+You can also run your CLI as an ordinary program, if you build it first.
+You can do this outside of your test, or inside with code like
+
+```go
+if err := exec.Command("go", "build", ".").Run(); err != nil {
+        t.Fatal(err)
+}
+defer os.Remove("my-cli")
+```
+
+Then add the command for your CLI to the `TestSuite`:
+
+```go
+ts.Commands["my-cli"] = cmdtest.Program("my-cli")
+```
+
+## Running the test
+
 Finally, call `TestSuite.Run` with `false` to compare the expected output to the
-actual output, `true` to update the expected output. Typically, this boolean
+actual output, or `true` to update the expected output. Typically, this boolean
 will be the value of a flag. So, your final test code will look something like:
 
 ```go
