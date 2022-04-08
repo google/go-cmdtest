@@ -79,8 +79,9 @@ import (
 // otherwise. However, commands that are expected to fail can be marked
 // with a " --> FAIL" suffix.
 //
-// The cases of a test file are executed in order, starting in a freshly
-// created temporary directory.
+// The cases of a test file are executed in order, starting in a freshly created
+// temporary directory. Execution of a file stops with the first case that
+// doesn't behave as expected, but other files in the suite will still run.
 //
 // The built-in commands (initial contents of the Commands map) are:
 //
@@ -305,21 +306,6 @@ func (ts *TestSuite) compare(t *testing.T) {
 
 var noopLogger = func(_ string, _ ...interface{}) {}
 
-// compareReturningError is similar to compare, but it returns
-// errors/differences in an error. It is used in tests for this package.
-func (ts *TestSuite) compareReturningError() error {
-	var ss []string
-	for _, tf := range ts.files {
-		if s := tf.compare(noopLogger); s != "" {
-			ss = append(ss, s)
-		}
-	}
-	if len(ss) > 0 {
-		return errors.New(strings.Join(ss, ""))
-	}
-	return nil
-}
-
 func (tf *testFile) compare(log func(string, ...interface{})) string {
 	if err := tf.execute(log); err != nil {
 		return fmt.Sprintf("%v", err)
@@ -412,9 +398,6 @@ func (tf *testFile) execute(log func(string, ...interface{})) error {
 	return nil
 }
 
-// A fatal error stops a test.
-type fatal struct{ error }
-
 // Run the test case by executing the commands. The concatenated output from all commands
 // is saved in tc.gotOutput.
 // An error is returned if: a command that should succeed instead failed; a command that should
@@ -451,9 +434,6 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 			return fmt.Errorf("%d: no such command %q", tc.startLine+i, name)
 		}
 		out, err := f(args, infile)
-		if _, ok := err.(fatal); ok {
-			return fmt.Errorf("%d: command %q failed fatally with %v", tc.startLine+i, cmd, err)
-		}
 		if err == nil && wantFail {
 			return fmt.Errorf("%d: %q succeeded, but it was expected to fail", tc.startLine+i, cmd)
 		}
@@ -659,10 +639,10 @@ func writeLines(w io.Writer, lines []string) error {
 func fixedArgBuiltin(nargs int, f func([]string) ([]byte, error)) CommandFunc {
 	return func(args []string, inputFile string) ([]byte, error) {
 		if len(args) != nargs {
-			return nil, fatal{fmt.Errorf("need exactly %d arguments", nargs)}
+			return nil, fmt.Errorf("need exactly %d arguments", nargs)
 		}
 		if inputFile != "" {
-			return nil, fatal{errors.New("input redirection not supported")}
+			return nil, errors.New("input redirection not supported")
 		}
 		return f(args)
 	}
@@ -688,7 +668,7 @@ func cdCmd(args []string) ([]byte, error) {
 // Also, literal "\n" in the input will be replaced by \n.
 func echoCmd(args []string, inputFile string) ([]byte, error) {
 	if inputFile != "" {
-		return nil, fatal{errors.New("input redirection not supported")}
+		return nil, errors.New("input redirection not supported")
 	}
 	s := strings.Join(args, " ")
 	s = strings.Replace(s, "\\n", "\n", -1)
@@ -703,10 +683,10 @@ func echoCmd(args []string, inputFile string) ([]byte, error) {
 // Also, literal "\n" in the input will be replaced by \n.
 func fechoCmd(args []string, inputFile string) ([]byte, error) {
 	if len(args) < 1 {
-		return nil, fatal{errors.New("need at least 1 argument")}
+		return nil, errors.New("need at least 1 argument")
 	}
 	if inputFile != "" {
-		return nil, fatal{errors.New("input redirection not supported")}
+		return nil, errors.New("input redirection not supported")
 	}
 	if err := checkPath(args[0]); err != nil {
 		return nil, err
@@ -753,7 +733,7 @@ func setenvCmd(args []string) ([]byte, error) {
 
 func checkPath(path string) error {
 	if strings.ContainsRune(path, '/') || strings.ContainsRune(path, '\\') {
-		return fatal{fmt.Errorf("argument must be in the current directory (%q has a '/')", path)}
+		return fmt.Errorf("argument must be in the current directory (%q has a '/')", path)
 	}
 	return nil
 }

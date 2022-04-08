@@ -15,6 +15,7 @@
 package cmdtest
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,6 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 
@@ -113,6 +115,21 @@ func TestRead(t *testing.T) {
 
 }
 
+// compareReturningError is similar to compare, but it returns
+// errors/differences in an error.
+func (ts *TestSuite) compareReturningError() error {
+	var ss []string
+	for _, tf := range ts.files {
+		if s := tf.compare(noopLogger); s != "" {
+			ss = append(ss, s)
+		}
+	}
+	if len(ss) > 0 {
+		return errors.New(strings.Join(ss, "\n"))
+	}
+	return nil
+}
+
 func TestCompare(t *testing.T) {
 	once.Do(setup)
 	ts := mustReadTestSuite(t, "good")
@@ -123,35 +140,43 @@ func TestCompare(t *testing.T) {
 	// Test errors.
 	// Since the output of cmp.Diff is unstable, we search for regexps we expect
 	// to find there, rather than checking an exact match.
-	ts = mustReadTestSuite(t, "bad")
-	ts.Commands["echo-stdin"] = Program("echo-stdin")
-	err := ts.compareReturningError()
-	if err == nil {
-		t.Fatal("got nil, want error")
-	}
-	got := err.Error()
-	wants := []string{
-		`testdata.bad.bad-output\.ct:2: want=-, got=+`,
-		`testdata.bad.bad-output\.ct:6: want=-, got=+`,
-		`testdata.bad.bad-fail-1\.ct:4: "echo" succeeded, but it was expected to fail`,
-		`testdata.bad.bad-fail-2\.ct:4: "cd foo" failed with chdir`,
-	}
-	failed := false
-	_ = failed
-	for _, w := range wants {
-		match, err := regexp.MatchString(w, got)
-		if err != nil {
-			t.Fatal(err)
+	t.Run("bad", func(t *testing.T) {
+		ts = mustReadTestSuite(t, "bad")
+		ts.Commands["echo-stdin"] = Program("echo-stdin")
+		err := ts.compareReturningError()
+		if err == nil {
+			t.Fatal("got nil, want error")
 		}
-		if !match {
-			t.Errorf(`output does not match "%s"`, w)
+		got := err.Error()
+		wants := []string{
+			`testdata.bad.bad-output\.ct:\d: want=-, got=+`,
+			`testdata.bad.bad-output\.ct:\d: want=-, got=+`,
+			`testdata.bad.bad-fail-1\.ct:\d: "echo" succeeded, but it was expected to fail`,
+			`testdata.bad.bad-fail-2\.ct:\d: "cd foo" failed with chdir`,
+			`testdata.bad.bad-fail-3\.ct:\d: "cd foo bar" failed with need exactly`,
+		}
+		failed := false
+		_ = failed
+		for _, w := range wants {
+			match, err := regexp.MatchString(w, got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !match {
+				t.Errorf(`output does not match "%s"`, w)
+				failed = true
+			}
+		}
+		const shouldNotAppear = "should not appear"
+		if strings.Contains(got, shouldNotAppear) {
+			t.Errorf("saw %q", shouldNotAppear)
 			failed = true
 		}
-	}
-	if failed {
-		// Log full output to aid debugging.
-		t.Logf("output:\n%s", got)
-	}
+		if failed {
+			// Log full output to aid debugging.
+			t.Logf("output:\n%s", got)
+		}
+	})
 }
 
 func TestExpandVariables(t *testing.T) {

@@ -1,8 +1,7 @@
 # Command should not fail, but does.
-# The failure is from the os.Chdir call.
+# The failure is from the arg check in cmdtest.go.
 
-$ cd foo
+$ cd foo bar
 
 # We shouldn't see this output.
 $ echo should not appear
-
