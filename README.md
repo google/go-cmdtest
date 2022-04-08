@@ -82,7 +82,7 @@ map; keep reading for an example.
 (typically, your shell). The environment variable ROOTDIR is set to the
 temporary directory created to run the test file.
 
-## Writing the test
+## Running the tests
 
 To test, first read the suite:
 
