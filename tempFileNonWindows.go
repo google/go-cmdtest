@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // Neither windows nor windows_test
+//go:build !windows && !windows_test
 // +build !windows,!windows_test
 
 package cmdtest

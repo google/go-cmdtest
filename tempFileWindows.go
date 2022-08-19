@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // Either windows or windows_test
+//go:build windows || windows_test
 // +build windows windows_test
 
 // Test this code on any machine with
