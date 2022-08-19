@@ -454,12 +454,14 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 			return fmt.Errorf("%d: no such command %q", tc.startLine+i, name)
 		}
 		out, err := f(args, infile)
+		log("%s\n", string(out))
+		allout = append(allout, out...)
 		line := tc.startLine + i
 		if err == nil && wantFail {
 			return fmt.Errorf("%d: %q succeeded, but it was expected to fail", line, cmd)
 		}
 		if err != nil && !wantFail {
-			return fmt.Errorf("%d: %q failed with %v. Output:\n%s", line, cmd, err, out)
+			return fmt.Errorf("%d: %q failed with %v", line, cmd, err)
 		}
 		if err != nil && wantFail && wantExitCode != 0 {
 			gotExitCode, ok := extractExitCode(err)
@@ -471,9 +473,6 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 					line, cmd, gotExitCode, wantExitCode)
 			}
 		}
-
-		log("%s\n", string(out))
-		allout = append(allout, out...)
 	}
 	if len(allout) > 0 {
 		allout = scrub(os.Getenv("ROOTDIR"), allout) // use Getenv because Setup could change ROOTDIR
