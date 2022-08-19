@@ -23,15 +23,15 @@
 //
 // To test, first read the suite:
 //
-//    ts, err := cmdtest.Read("testdata")
+//	ts, err := cmdtest.Read("testdata")
 //
 // Then configure the resulting TestSuite by adding commands or enabling
 // debugging features. Lastly, call TestSuite.Run with false to compare
 // or true to update. Typically, this boolean will be the value of a flag:
 //
-//    var update = flag.Bool("update", false, "update test files with results")
-//    ...
-//    ts.Run(t, *update)
+//	var update = flag.Bool("update", false, "update test files with results")
+//	...
+//	ts.Run(t, *update)
 package cmdtest
 
 import (
@@ -88,12 +88,12 @@ import (
 //
 // The built-in commands (initial contents of the Commands map) are:
 //
-//   cd DIR
-//   cat FILE
-//   mkdir DIR
-//   setenv VAR VALUE
-//   echo ARG1 ARG2 ...
-//   fecho FILE ARG1 ARG2 ...
+//	cd DIR
+//	cat FILE
+//	mkdir DIR
+//	setenv VAR VALUE
+//	echo ARG1 ARG2 ...
+//	fecho FILE ARG1 ARG2 ...
 //
 // These all have their usual Unix shell meaning, except for fecho, which writes its
 // arguments to a file (output redirection is not supported). All file and directory
