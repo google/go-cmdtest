@@ -301,22 +301,38 @@ func (tf *testFile) addCase(tc *testCase) []string {
 // Before comparing/updating, occurrences of the root directory in the output
 // are replaced by ${ROOTDIR}.
 func (ts *TestSuite) Run(t *testing.T, update bool) {
+	ts.run(t, update, false)
+}
+
+// RunParallel is like Run, but runs the tests in parallel using t.Parallel.
+//
+// Unlike Run, tests are not run in temporary directories, and ROOTDIR is
+// neither set nor replaced.
+func (ts *TestSuite) RunParallel(t *testing.T, update bool) {
+	ts.run(t, update, true)
+}
+
+func (ts *TestSuite) run(t *testing.T, update, parallel bool) {
 	if update {
-		ts.update(t)
+		ts.update(t, parallel)
 	} else {
-		ts.compare(t)
+		ts.compare(t, parallel)
 	}
 }
 
 // compare runs a subtest for each file in the test suite. See Run.
-func (ts *TestSuite) compare(t *testing.T) {
+func (ts *TestSuite) compare(t *testing.T, parallel bool) {
 	log := t.Logf
 	if ts.DisableLogging {
 		log = noopLogger
 	}
 	for _, tf := range ts.files {
+		tf := tf
 		t.Run(strings.TrimSuffix(tf.filename, ".ct"), func(t *testing.T) {
-			if s := tf.compare(log); s != "" {
+			if parallel {
+				t.Parallel()
+			}
+			if s := tf.compare(log, parallel); s != "" {
 				t.Error(s)
 			}
 		})
@@ -325,8 +341,8 @@ func (ts *TestSuite) compare(t *testing.T) {
 
 var noopLogger = func(_ string, _ ...interface{}) {}
 
-func (tf *testFile) compare(log func(string, ...interface{})) string {
-	if err := tf.execute(log); err != nil {
+func (tf *testFile) compare(log func(string, ...interface{}), parallel bool) string {
+	if err := tf.execute(log, parallel); err != nil {
 		return fmt.Sprintf("%v", err)
 	}
 	buf := new(bytes.Buffer)
@@ -342,10 +358,13 @@ func (tf *testFile) compare(log func(string, ...interface{})) string {
 
 // update runs a subtest for each file in the test suite, updating their output.
 // See Run.
-func (ts *TestSuite) update(t *testing.T) {
+func (ts *TestSuite) update(t *testing.T, parallel bool) {
 	for _, tf := range ts.files {
 		t.Run(strings.TrimSuffix(tf.filename, ".ct"), func(t *testing.T) {
-			tmpfile, err := tf.updateToTemp()
+			if parallel {
+				t.Parallel()
+			}
+			tmpfile, err := tf.updateToTemp(parallel)
 			if tmpfile != nil {
 				defer func() {
 					if err := tmpfile.Cleanup(); err != nil {
@@ -365,8 +384,8 @@ func (ts *TestSuite) update(t *testing.T) {
 
 // updateToTemp executes tf and writes the output to a temporary file.
 // It returns the temporary file.
-func (tf *testFile) updateToTemp() (f tempFile, err error) {
-	if err := tf.execute(noopLogger); err != nil {
+func (tf *testFile) updateToTemp(parallel bool) (f tempFile, err error) {
+	if err := tf.execute(noopLogger, parallel); err != nil {
 		return nil, err
 	}
 	if f, err = createTempFile(tf.filename); err != nil {
@@ -379,30 +398,34 @@ func (tf *testFile) updateToTemp() (f tempFile, err error) {
 	return f, nil
 }
 
-func (tf *testFile) execute(log func(string, ...interface{})) error {
-	rootDir, err := ioutil.TempDir("", "cmdtest")
-	if err != nil {
-		return fmt.Errorf("%s: %v", tf.filename, err)
-	}
-	if tf.suite.KeepRootDirs {
-		fmt.Printf("%s: test root directory: %s\n", tf.filename, rootDir)
-	} else {
-		defer os.RemoveAll(rootDir)
-	}
+func (tf *testFile) execute(log func(string, ...interface{}), parallel bool) error {
+	var rootDir string
+	if !parallel {
+		var err error
+		rootDir, err = ioutil.TempDir("", "cmdtest")
+		if err != nil {
+			return fmt.Errorf("%s: %v", tf.filename, err)
+		}
+		if tf.suite.KeepRootDirs {
+			fmt.Printf("%s: test root directory: %s\n", tf.filename, rootDir)
+		} else {
+			defer os.RemoveAll(rootDir)
+		}
 
-	if err := os.Setenv("ROOTDIR", rootDir); err != nil {
-		return fmt.Errorf("%s: %v", tf.filename, err)
-	}
-	defer os.Unsetenv("ROOTDIR")
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("%s: %v", tf.filename, err)
-	}
+		if err := os.Setenv("ROOTDIR", rootDir); err != nil {
+			return fmt.Errorf("%s: %v", tf.filename, err)
+		}
+		defer os.Unsetenv("ROOTDIR")
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("%s: %v", tf.filename, err)
+		}
 
-	if err := os.Chdir(rootDir); err != nil {
-		return fmt.Errorf("%s: %v", tf.filename, err)
+		if err := os.Chdir(rootDir); err != nil {
+			return fmt.Errorf("%s: %v", tf.filename, err)
+		}
+		defer func() { _ = os.Chdir(cwd) }()
 	}
-	defer func() { _ = os.Chdir(cwd) }()
 
 	if tf.suite.Setup != nil {
 		if err := tf.suite.Setup(rootDir); err != nil {
@@ -410,7 +433,7 @@ func (tf *testFile) execute(log func(string, ...interface{})) error {
 		}
 	}
 	for _, tc := range tf.cases {
-		if err := tc.execute(tf.suite, log); err != nil {
+		if err := tc.execute(tf.suite, log, parallel); err != nil {
 			return fmt.Errorf("%s:%v", tf.filename, err) // no space after :, for line number
 		}
 	}
@@ -425,7 +448,7 @@ func (tf *testFile) execute(log func(string, ...interface{})) error {
 //   - A command that should fail with a particular error code instead failed
 //     with a different one.
 //   - A built-in command was called incorrectly.
-func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) error {
+func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{}), parallel bool) error {
 	tc.gotOutput = nil
 	var allout []byte
 	for i, cmd := range tc.commands {
@@ -475,7 +498,9 @@ func (tc *testCase) execute(ts *TestSuite, log func(string, ...interface{})) err
 		}
 	}
 	if len(allout) > 0 {
-		allout = scrub(os.Getenv("ROOTDIR"), allout) // use Getenv because Setup could change ROOTDIR
+		if !parallel {
+			allout = scrub(os.Getenv("ROOTDIR"), allout) // use Getenv because Setup could change ROOTDIR
+		}
 		// Remove final whitespace.
 		s := strings.TrimRight(string(allout), " \t\n")
 		tc.gotOutput = strings.Split(s, "\n")

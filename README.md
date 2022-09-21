@@ -80,7 +80,8 @@ map; keep reading for an example.
 `cmdtest` does its own environment variable substitution, using the syntax
 `${VAR}`. Test execution inherits the full environment of the test binary caller
 (typically, your shell). The environment variable `ROOTDIR` is set to the
-temporary directory created to run the test file.
+temporary directory created to run the test file (except in parallel mode; see
+below).
 
 ## Running the tests
 
@@ -153,3 +154,10 @@ func TestCLI(t *testing.T) {
     ts.Run(t, *update)
 }
 ```
+
+## Parallel mode
+
+If you call `ts.RunParallel` instead of `ts.Run`, each file in the suite is run
+in parallel with the others. (The cases in a single file are still run
+sequentially, however.) In this mode, no temporary directories are created
+and `ROOTDIR` is not set.
