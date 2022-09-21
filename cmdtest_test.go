@@ -123,10 +123,10 @@ func TestRead(t *testing.T) {
 
 // compareReturningError is similar to compare, but it returns
 // errors/differences in an error.
-func (ts *TestSuite) compareReturningError() error {
+func (ts *TestSuite) compareReturningError(parallel bool) error {
 	var ss []string
 	for _, tf := range ts.files {
-		if s := tf.compare(noopLogger); s != "" {
+		if s := tf.compare(noopLogger, parallel); s != "" {
 			ss = append(ss, s)
 		}
 	}
@@ -155,7 +155,7 @@ func TestCompare(t *testing.T) {
 		}
 		ts.Commands["inprocess99"] = InProcessProgram("inprocess99", func() int { return 99 })
 
-		err := ts.compareReturningError()
+		err := ts.compareReturningError(false)
 		if err == nil {
 			t.Fatal("got nil, want error")
 		}
@@ -238,7 +238,7 @@ func TestUpdateToTemp(t *testing.T) {
 		ts := mustReadTestSuite(t, dir)
 		ts.Commands["echo-stdin"] = Program("echo-stdin")
 		ts.Commands["echoStdin"] = InProcessProgram("echoStdin", echoStdin)
-		f, err := ts.files[0].updateToTemp()
+		f, err := ts.files[0].updateToTemp(false)
 		defer f.Cleanup()
 		if err != nil {
 			t.Fatal(err)
@@ -262,7 +262,7 @@ func TestUpdate(t *testing.T) {
 		}
 	}()
 	ts := mustReadTestSuite(t, "update")
-	ts.update(t)
+	ts.update(t, false)
 	if diff := diffFiles(t, ct, "testdata/update/update.golden"); diff != "" {
 		t.Errorf(diff)
 	}
@@ -312,6 +312,11 @@ func TestParseCommand(t *testing.T) {
 				test.wantCmd, test.wantFail, test.wantCode, test.wantErr)
 		}
 	}
+}
+
+func TestParallel(t *testing.T) {
+	ts := mustReadTestSuite(t, "parallel")
+	ts.RunParallel(t, false)
 }
 
 func diffFiles(t *testing.T, gotFile, wantFile string) string {

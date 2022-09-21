@@ -1,0 +1,5 @@
+$ echo hello world
+hello world
+
+# Fails because there is no subdirectory "foo".
+$ cd foo --> FAIL
