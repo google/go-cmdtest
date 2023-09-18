@@ -319,6 +319,11 @@ func TestParallel(t *testing.T) {
 	ts.RunParallel(t, false)
 }
 
+func TestFiles(t *testing.T) {
+	ts := mustReadTestSuite(t, "files")
+	ts.Run(t, false)
+}
+
 func diffFiles(t *testing.T, gotFile, wantFile string) string {
 	got, err := ioutil.ReadFile(gotFile)
 	if err != nil {

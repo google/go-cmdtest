@@ -1,0 +1,2 @@
+$ cat hello.txt
+You see this, because the file was copied to the temporary directory.

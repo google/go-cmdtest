@@ -1,0 +1,5 @@
+# Files are not shared between test cases
+$ cat hello.txt --> FAIL
+
+$ cat bye.txt
+Good bye
