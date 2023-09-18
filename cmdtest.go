@@ -421,6 +421,13 @@ func (tf *testFile) execute(log func(string, ...interface{}), parallel bool) err
 			return fmt.Errorf("%s: %v", tf.filename, err)
 		}
 
+		testFilesDir := strings.Replace(tf.filename, ".ct", "_tf", 1)
+		if _, err := os.Stat(testFilesDir); err == nil {
+			if err := copyTestFiles(rootDir, testFilesDir); err != nil {
+				return fmt.Errorf("%s: copying test files: %v", tf.filename, err)
+			}
+		}
+
 		if err := os.Chdir(rootDir); err != nil {
 			return fmt.Errorf("%s: %v", tf.filename, err)
 		}
@@ -848,4 +855,45 @@ type tempFile interface {
 
 	// Close the file and replace the destination file with it.
 	CloseAtomicallyReplace() error
+}
+
+// copyTestFiles copies test cases' working files in <ct_name>_tf directory
+// to its working temporary directory.
+// It returns and error if any of its operations fail.
+func copyTestFiles(tmpDir, testFilesDir string) error {
+	files, err := ioutil.ReadDir(testFilesDir)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		sourcePath := filepath.Join(testFilesDir, file.Name())
+		destPath := filepath.Join(tmpDir, file.Name())
+
+		if err := copyFile(sourcePath, destPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
